@@ -1,39 +1,34 @@
 import socket, os
-from http import HTTPRequest, HTTPResponse, parse_response_file
+from HttpPackage import HTTPServer
 
-PORT = int(os.environ.get("http_server_port", 5000))
-ADDRESS = os.environ.get("http_server_address", "127.0.0.1")
-
-s = socket.socket()
-s.bind((ADDRESS, PORT))
-s.listen(5)
-
-print(f"Server available at http://{ADDRESS}:{PORT}")
+server = HTTPServer.HTTPServer()
 
 while True:
-    conn, c_addr = s.accept()
-
-    # Creating HTTP request instance and parsing request
-    request = HTTPRequest(conn.recv(1024))
+    conn, req = server.conn()
 
     # Print request to console
     print(
-        f"Method: {request.method} - Location: {request.location} - HTTP_Version: {request.http_version}"
+        f"Method: {req.method} - Location: {req.location} - HTTP_Version: {req.http_version}"
     )
+    
+    @server.Route("/test")
+    def test():
+        return "Test"
 
     ### GET ###
-    if request.method == "GET":
+    if req.method == "GET":
+
         # Attempt to retrieve file, if exists return file else return 404
-        http_file = parse_response_file(request.location.strip("/"))
+        http_file = server.parse_response_file(req.location.strip("/"))
+
+        # If file is not found return the appropriate response else create a response with the file
         if not http_file:
-            http_resp = HTTPResponse()
-            resp = http_resp.not_found()
+            resp = server.not_found()
         else:  #
-            http_resp = HTTPResponse()
-            resp = http_resp.make_response(
-                request.http_version, "200", "OK", http_file, request.location
+            resp = server.make_response(
+                req.http_version, "200", "OK", http_file, req.content_type
             )
-        print("RESP: ", resp)
+
         # Send response
         conn.sendall(resp)
         conn.close()

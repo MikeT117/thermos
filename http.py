@@ -14,6 +14,7 @@ class HTTPRequest:
         self.method = ""
         self.location = ""
         self.headers = {}
+        self.content_type = "html"
         try:
             if self.request is None:
                 raise TypeError("Request not provided")
@@ -24,6 +25,10 @@ class HTTPRequest:
             self.request = BytesIO(self.request)
             request_str = self.request.readline().decode("utf-8").split()
             self.method, self.location = request_str[:2]
+
+            request_type = self.location.split(".")
+            if len(request_type) == 2:
+                self.content_type = request_type[1]
 
             # Get HTTP version from request
             self.http_version = request_str[2].split("/")[1]
@@ -39,69 +44,67 @@ class HTTPRequest:
             print(err)
 
 
-class HTTPResponse:
-    def make_response(
-        self,
-        http_version,
-        status_code,
-        status_text,
-        data,
-        content_type=None,
-        headers=None,
-    ):
-        try:
-            if (
-                http_version is None
-                or status_code is None
-                or status_text is None
-                or data is None
-            ):
-                raise TypeError("Malformed response data")
-        except Exception as err:
-            print(err)
+def make_response(
+    http_version, status_code, status_text, data, content_type, headers=None
+):
+    try:
+        if (
+            http_version is None
+            or status_code is None
+            or status_text is None
+            or data is None
+        ):
+            raise TypeError("Malformed response data")
 
-        try:
-            if type(data) is not bytes:
-                raise TypeError("Data must be bytes")
-        except TypeError as err:
-            print(err)
-            return
+        if type(data) is not bytes:
+            raise TypeError("Data must be bytes")
+    except TypeError as err:
+        print(err)
+        return False
 
-        ret = b"HTTP/%b %b %b\n%b\n" % (
-            http_version.encode(),
-            status_code.encode(),
-            status_text.encode(),
-            self._content_type(content_type),
-        )
-        if headers is not None:
-            print(headers)
-            for i in headers:
-                ret += i.encode() + b"\n"
-        return ret + b"\n" + data
+    # Determining content type, Defaults to HTML
+    content_types = {
+        "css": b"Content-Type: text/css",
+        "html": b"Content-Type: text/html",
+        "js": b"Content-Type: application/javascript",
+        "jpg": b"Content-Type: image/jpg",
+        "jpeg": b"Content-Type: image/jpeg",
+        "gif": b"Content-Type: image/gif",
+        "png": b"Content-Type: image/png",
+        "jpg": b"Content-Type: image/jpg",
+        "ico": b"Content-Type: image/ico",
+    }
 
-    def not_found(self):
-        return self.make_response(
-            "1.1",
-            "404",
-            "Not Found",
-            b"<html><head></head><body><h1>Not found</h1></body></html>",
-        )
+    # Set 'Content-Type' header based on extension, return html as default
+    if content_type is None:
+        content_type = content_types["html"]
+    else:
+        content_type = content_types[content_type]
 
-    def _content_type(self, cType):
-        types = {
-            "css": b"Content-Type: text/css",
-            "html": b"Content-Type: text/html",
-            "js": b"Content-Type: text/javascript",
-        }
+    # Return response
+    ret = b"HTTP/%b %b %b\n%b\n" % (
+        http_version.encode(),
+        status_code.encode(),
+        status_text.encode(),
+        content_type,
+    )
 
-        if cType is None:
-            return types["html"]
+    # Parse additional headers and add to response
+    if headers is not None:
+        for i in headers:
+            ret += i.encode() + b"\n"
+    return ret + b"\n" + data
 
-        cType = cType.split(".")
-        if len(cType) != 2:
-            return types["html"]
 
-        return types[cType[1]]
+# Not found response, 404
+def not_found():
+    return make_response(
+        "1.1",
+        "404",
+        "Not Found",
+        b"<html><head></head><body><h1>404: Not found</h1></body></html>",
+        "html",
+    )
 
 
 def parse_response_file(filename=None):
@@ -111,6 +114,7 @@ def parse_response_file(filename=None):
     except TypeError as err:
         print(err)
         return False
+
     try:
         if len(filename.split(".")) != 2:
             filename += ".html"
@@ -118,7 +122,10 @@ def parse_response_file(filename=None):
         html_file = open(filename, "rb")
         ret = b""
         while True:
-            line = html_file.readline().strip(b" ")
+            if filename.split(".")[1] in {"jpg", "png", "jpeg", "gif", "ico"}:
+                line = html_file.readline()
+            else:
+                line = html_file.readline().strip(b" ")
             if len(line) <= 0:
                 break
             ret += line
