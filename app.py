@@ -1,34 +1,21 @@
-import socket, os
-from HttpPackage import HTTPServer
+from Thermos import Thermos, make_response, not_found
 
-server = HTTPServer.HTTPServer()
+server = Thermos()
 
-while True:
-    conn, req = server.conn()
 
-    # Print request to console
-    print(
-        f"Method: {req.method} - Location: {req.location} - HTTP_Version: {req.http_version}"
-    )
-    
-    @server.Route("/test")
-    def test():
-        return "Test"
+@server.route("/")
+def test(request):
+    """Need the request to be accessible here"""
+    http_file = server.parse_response_file("test")
+    print("FILE: ", http_file)
+    if not http_file:
+        return not_found()
+    else:
+        print("TEST", request.content_type)
+        return make_response(
+            request.http_version, "200", "OK", http_file, request.content_type
+        )
 
-    ### GET ###
-    if req.method == "GET":
 
-        # Attempt to retrieve file, if exists return file else return 404
-        http_file = server.parse_response_file(req.location.strip("/"))
+server.initialise_server()
 
-        # If file is not found return the appropriate response else create a response with the file
-        if not http_file:
-            resp = server.not_found()
-        else:  #
-            resp = server.make_response(
-                req.http_version, "200", "OK", http_file, req.content_type
-            )
-
-        # Send response
-        conn.sendall(resp)
-        conn.close()
