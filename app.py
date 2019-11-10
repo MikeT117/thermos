@@ -1,21 +1,21 @@
-from Thermos import Thermos, make_response, not_found
+import json
+from Thermos import Thermos, make_response
 
 server = Thermos()
 
 
-@server.route("/")
+@server.route("/", methods={"GET", "POST"})
+def root(request):
+    return server.render_template("test.html")
+
+
+@server.route("/test", methods={"POST"})
 def test(request):
-    """Need the request to be accessible here"""
-    http_file = server.parse_response_file("test")
-    print("FILE: ", http_file)
-    if not http_file:
-        return not_found()
-    else:
-        print("TEST", request.content_type)
-        return make_response(
-            request.http_version, "200", "OK", http_file, request.content_type
-        )
+    data = json.dumps({"id": 1, "name": "James Smith"})
+    return make_response(
+        "1.1", "200", "OK", data.encode(), "json"
+    )
 
 
-server.initialise_server()
+server.thermos_run()
 
