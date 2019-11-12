@@ -1,3 +1,6 @@
+import json
+
+
 def make_response(
     http_version, status_code, status_text, data, content_type, headers=None
 ):
@@ -16,32 +19,26 @@ def make_response(
         print(err)
         return False
 
-    # Determining content type, Defaults to HTML
-    content_types = {
-        "css": b"Content-Type: text/css",
-        "html": b"Content-Type: text/html",
-        "js": b"Content-Type: application/javascript",
-        "json": b"Content-Type: application/json",
-        "jpg": b"Content-Type: image/jpg",
-        "jpeg": b"Content-Type: image/jpeg",
-        "gif": b"Content-Type: image/gif",
-        "png": b"Content-Type: image/png",
-        "jpg": b"Content-Type: image/jpg",
-        "ico": b"Content-Type: image/ico",
-    }
-
-    # Set 'Content-Type' header based on extension, return html as default
-    if content_type is None:
-        content_type = content_types["html"]
+    # Basic setting of 'Content-Type' header based on file extension,
+    # not robust and certainly doesn't cover all possible type/subtypes
+    # but for this very basic server it gets the job done
+    if content_type in {"jpg", "jpeg", "png", "ico", "webp", "gif"}:
+        content_type = f"Content-type: image/{content_type}"
+    elif content_type in {"html"}:
+        content_type = f"Content-type: text/{content_type}; charset=UTF-8"
+    elif content_type in {"css"}:
+        content_type = f"Content-type: text/{content_type}; charset=UTF-8"
+    elif content_type in {"json", "js"}:
+        content_type = f"Content-type: application/javascript"
     else:
-        content_type = content_types[content_type]
+        content_type = b"Content_type: text/html; charset=UTF-8"
 
     # Return response
     ret = b"HTTP/%b %b %b\n%b\n" % (
         http_version.encode(),
         status_code.encode(),
         status_text.encode(),
-        content_type,
+        content_type.encode(),
     )
 
     # Parse additional headers and add to response
@@ -55,11 +52,7 @@ def parse_file(filename=None):
     try:
         if filename is None:
             raise TypeError("Filename not provided!")
-    except TypeError as err:
-        print(err)
-        return False
 
-    try:
         file = open(filename, "rb")
         ret = b""
         while True:
@@ -69,9 +62,8 @@ def parse_file(filename=None):
             ret += line
         return ret
 
-    except FileNotFoundError as err:
-        print("%s not found" % filename)
-        return False
+    except (TypeError, FileNotFoundError):
+        raise
 
 
 def not_found():
@@ -102,3 +94,11 @@ def method_not_allowed():
         b"<html><head></head><body><h1>405: Method Not Allowed</h1></body></html>",
         "html",
     )
+
+
+def jsonify(data):
+    try:
+        data = json.dumps(data)
+        return make_response("1.1", "200", "OK", data.encode(), "json")
+    except SyntaxError:
+        raise

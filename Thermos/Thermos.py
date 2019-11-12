@@ -1,4 +1,4 @@
-import socket, json
+import socket
 from Thermos import (
     make_response,
     not_found,
@@ -7,8 +7,9 @@ from Thermos import (
     Request,
     MethodNotAllowedError,
     method_not_allowed,
-    EmptyMethodsError
+    EmptyMethodsError,
 )
+from io import BytesIO
 
 
 class Thermos(object):
@@ -48,10 +49,8 @@ class Thermos(object):
         # Kickoff the request/response loop
         while True:
             conn = self.s.accept()[0]
-            self.req = Request(conn.recv(1024))
-            print(f"{self.req.method} - {self.req.location}")
+            self.req = Request(conn.recv(4096))
             try:
-
                 ############## GET ################
                 if self.req.method == "GET":
                     if len(self.req.location.split(".")) > 1:
@@ -63,7 +62,6 @@ class Thermos(object):
                             resp = self._get_route(self.req.location, self.req.method)
                         except KeyError:
                             resp = not_found()
-
                         except MethodNotAllowedError:
                             resp = method_not_allowed()
 
@@ -89,8 +87,13 @@ class Thermos(object):
 
     # Define a route and add it to the dict
     def route(self, url="/", methods=None):
+        """
+        A decorator for defining routes and the methods allowed
+        on the route
+        """
         if methods is None or len(methods) < 1:
             raise EmptyMethodsError("Methods cannot be empty")
+
         def decorator(f):
             Thermos.all_routes[url] = (f, frozenset(methods))
             return f
@@ -110,6 +113,10 @@ class Thermos(object):
         raise MethodNotAllowedError
 
     def render_template(self, template=None):
+        """
+        Pulls the 'template' from the template store
+        parses it and sends to the client
+        """
         try:
             if template is None:
                 raise TypeError("Template cannot be empty!")
@@ -120,19 +127,19 @@ class Thermos(object):
             file = parse_file(f"{self.TEMPLATE_FOLDER}{template}")
 
             if file:
-                return make_response(
-                    self.req.http_version, "200", "OK", file, template.split(".")[-1]
-                )
-
-            return not_found()
+                return make_response(self.req.http_version, "200", "OK", file, "html")
 
         except (TypeError, KeyError) as err:
             print(err)
             return server_error()
+        except FileNotFoundError:
+            return not_found()
 
     # Send a static file to the client
     def send_static_file(self, filename):
-        """ Sends a file from the static folder to the client"""
+        """
+        Sends a file from the static folder to the client
+        """
         try:
             # Split filename on '.', and check length is at least 2, return false if not
             split = filename.rsplit(".", 1)
@@ -143,8 +150,8 @@ class Thermos(object):
             parsed_file = parse_file(
                 f"{self.STATIC_FOLDER}{filename.split('static')[-1]}"
             )
-            if parsed_file:
-                return make_response("1.1", "200", "OK", parsed_file, split[-1])
+            if not parsed_file:
+                return server_error()
+            return make_response("1.1", "200", "OK", parsed_file, split[-1])
+        except FileNotFoundError as err:
             return not_found()
-        except Exception as err:
-            print("SEND_STATIC_FILE: ", err)

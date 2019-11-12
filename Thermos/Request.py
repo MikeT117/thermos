@@ -1,4 +1,5 @@
 from io import BytesIO
+import json
 
 
 class Request:
@@ -13,32 +14,34 @@ class Request:
         self.method = ""
         self.location = ""
         self.headers = {}
-        self.content_type = "html"
+        self.body = ""
+        self.json = None
         try:
             if request is None:
                 raise TypeError("Request not provided")
 
             if len(request) <= 0:
-                print(request)
                 raise TypeError("Malformed request")
 
             request = BytesIO(request)
-            request_string = request.readline().decode("utf-8").split()
-            self.method, self.location = request_string[:2]
-
-            request_type = self.location.split(".")
-            if len(request_type) == 2:
-                self.content_type = request_type[1]
+            request_str = request.readline().decode("utf-8").split()
+            self.method, self.location = request_str[:2]
 
             # Get HTTP version from request
-            self.http_version = request_string[2].split("/")[1]
+            self.http_version = request_str[2].split("/")[1]
 
             while True:
-                line = request.readline().strip()
-                if len(line) == 0:
+                line = request.readline()
+                if len(line) < 1:
                     break
-                decoded = line.decode("utf-8").split(":", 1)
-                self.headers[decoded[0]] = decoded[1].strip()
+                if line != b"\r\n":
+                    line = line.decode("utf-8").split(":", 1)
+                    self.headers[line[0].strip()] = line[-1].strip()
+                else:
+                    line = request.readline().decode("utf-8").strip()
+                    if len(line) > 0:
+                        self.body = line
+                        self.json = json.loads(line)
 
         except TypeError as err:
             print(err)

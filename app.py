@@ -1,5 +1,5 @@
 import json
-from Thermos import Thermos, make_response
+from Thermos import Thermos, make_response, jsonify
 
 server = Thermos()
 
@@ -11,10 +11,7 @@ def root(request):
 
 @server.route("/test", methods={"POST"})
 def test(request):
-    data = json.dumps({"id": 1, "name": "James Smith"})
-    return make_response(
-        "1.1", "200", "OK", data.encode(), "json"
-    )
+    return jsonify({"id": 1, "name": "James Smith"})
 
 
 server.thermos_run()
