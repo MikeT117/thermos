@@ -13,42 +13,49 @@ from io import BytesIO
 
 
 class Thermos(object):
-
-    all_routes = {}
-
-    def __init__(self, port=None, addr=None, static_folder=None, templates_folder=None):
+    def __init__(
+        self,
+        port=5000,
+        addr="127.0.0.1",
+        static_folder="./static/",
+        templates_folder="./templates/",
+    ):
+        try:
+            # Check if the user has provided custom settings, if so apply them if not use defaults
+            if type(port) is not int:
+                raise TypeError("Port must be of type integer.")
+            if type(addr) is not str:
+                raise TypeError("Address must be of type string.")
+            if type(static_folder) is not str:
+                raise TypeError("Static folder must be of type string.")
+            if type(templates_folder) is not str:
+                raise TypeError("Templates folder must of type string")
+        except TypeError as err:
+            raise
 
         # Set the default settings.
-        self.PORT = 5000
-        self.ADDRESS = "127.0.0.1"
-        self.STATIC_FOLDER = "./static/"
-        self.TEMPLATE_FOLDER = "./templates/"
-        self.s = socket.socket()
-
-        # Check if the user has provided custom settings, if so apply them if not use defaults
-        if port is not None:
-            self.PORT = port
-        if addr is not None:
-            self.ADDRESS = addr
-        if static_folder is not None:
-            self.STATIC_FOLDER = static_folder
-        if templates_folder is not None:
-            self.TEMPLATE_FOLDER = templates_folder
+        self.PORT = port
+        self.ADDRESS = addr
+        self.STATIC_FOLDER = static_folder
+        self.TEMPLATE_FOLDER = templates_folder
+        self.routes = {}
 
     # Starts the request/response loop
     def thermos_run(self):
+        # Create the socket
+        s = socket.socket()
         # Bind the socket to the address and port
-        self.s.bind((self.ADDRESS, self.PORT))
+        s.bind((self.ADDRESS, self.PORT))
 
         # Set the backlog amount
-        self.s.listen(5)
+        s.listen(5)
 
         # Print out thre address and port the server is binded to.
         print(f"Server available at http://{self.ADDRESS}:{self.PORT}")
 
         # Kickoff the request/response loop
         while True:
-            conn = self.s.accept()[0]
+            conn = s.accept()[0]
             self.req = Request(conn.recv(4096))
             try:
                 ############## GET ################
@@ -86,16 +93,17 @@ class Thermos(object):
                 conn.close()
 
     # Define a route and add it to the dict
-    def route(self, url="/", methods=None):
+    def route(self, url="/", methods=[]):
         """
         A decorator for defining routes and the methods allowed
         on the route
         """
-        if methods is None or len(methods) < 1:
+
+        if len(methods) < 1:
             raise EmptyMethodsError("Methods cannot be empty")
 
         def decorator(f):
-            Thermos.all_routes[url] = (f, frozenset(methods))
+            self.routes[url] = (f, frozenset(methods))
             return f
 
         return decorator
@@ -107,35 +115,12 @@ class Thermos(object):
         but with no matching method an exception is raised and caught in the
         calling function.
         """
-        route = self.all_routes[route]
+        route = self.routes[route]
         if self.req.method in route[1]:
             return route[0](self.req)
         raise MethodNotAllowedError
 
-    def render_template(self, template=None):
-        """
-        Pulls the 'template' from the template store
-        parses it and sends to the client
-        """
-        try:
-            if template is None:
-                raise TypeError("Template cannot be empty!")
-
-            if len(template.split(".")) < 2:
-                raise KeyError("File extension not provide")
-
-            file = parse_file(f"{self.TEMPLATE_FOLDER}{template}")
-
-            if file:
-                return make_response(self.req.http_version, "200", "OK", file, "html")
-
-        except (TypeError, KeyError) as err:
-            print(err)
-            return server_error()
-        except FileNotFoundError:
-            return not_found()
-
-    # Send a static file to the client
+    # Send a static file to the client - Move to utilities
     def send_static_file(self, filename):
         """
         Sends a file from the static folder to the client
@@ -154,4 +139,27 @@ class Thermos(object):
                 return server_error()
             return make_response("1.1", "200", "OK", parsed_file, split[-1])
         except FileNotFoundError as err:
+            return not_found()
+
+    def render_template(self, template=None):
+        """
+        Pulls the 'template' from the template store
+        parses it and sends to the client
+        """
+        try:
+            if template is None:
+                raise TypeError("Template cannot be empty!")
+
+            if len(template.split(".")) < 2:
+                raise KeyError("File extension not provide")
+
+            file = parse_file(f"{self.TEMPLATE_FOLDER}{template}")
+
+            if file:
+                return make_response("1.1", "200", "OK", file, "html")
+
+        except (TypeError, KeyError) as err:
+            print(err)
+            return server_error()
+        except FileNotFoundError:
             return not_found()

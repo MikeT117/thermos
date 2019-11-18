@@ -41,6 +41,8 @@ def make_response(
         content_type.encode(),
     )
 
+    print("RET: ", ret)
+
     # Parse additional headers and add to response
     if headers is not None:
         for i in headers:

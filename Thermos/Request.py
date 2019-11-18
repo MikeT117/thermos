@@ -25,6 +25,8 @@ class Request:
 
             request = BytesIO(request)
             request_str = request.readline().decode("utf-8").split()
+
+            # Get method and location from request
             self.method, self.location = request_str[:2]
 
             # Get HTTP version from request
