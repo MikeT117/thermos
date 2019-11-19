@@ -21,7 +21,7 @@ class Thermos(object):
         templates_folder="./templates/",
     ):
         try:
-            # Check if the user has provided custom settings, if so apply them if not use defaults
+            # Check for user supplied settings, apply if found and coorect type
             if type(port) is not int:
                 raise TypeError("Port must be of type integer.")
             if type(addr) is not str:
@@ -33,14 +33,15 @@ class Thermos(object):
         except TypeError as err:
             raise
 
-        # Set the default settings.
+        # Apply server settings
         self.PORT = port
         self.ADDRESS = addr
         self.STATIC_FOLDER = static_folder
         self.TEMPLATE_FOLDER = templates_folder
-        self.routes = {}
 
-    # Starts the request/response loop
+        # Create variable to store all routes
+        self.ROUTES = {}
+
     def thermos_run(self):
         # Create the socket
         s = socket.socket()
@@ -50,13 +51,18 @@ class Thermos(object):
         # Set the backlog amount
         s.listen(5)
 
-        # Print out thre address and port the server is binded to.
+        # Print the address/port the server is accessible from.
         print(f"Server available at http://{self.ADDRESS}:{self.PORT}")
 
-        # Kickoff the request/response loop
+        # Begin the request/response loop
         while True:
+
+            # Create a variable to store the connection from the client
             conn = s.accept()[0]
+
+            # Create a variable to store the request retrieved from the connection
             self.req = Request(conn.recv(4096))
+
             try:
                 ############## GET ################
                 if self.req.method == "GET":
@@ -72,8 +78,6 @@ class Thermos(object):
                         except MethodNotAllowedError:
                             resp = method_not_allowed()
 
-                ##################################
-
                 ############## POST ##############
                 if self.req.method == "POST":
                     resp = self._get_route(self.req.location, self.req.method)
@@ -81,8 +85,6 @@ class Thermos(object):
                         resp = self.send_static_file(
                             f"{self.STATIC_FOLDER}{self.req.location.strip('/')}"
                         )
-
-                ##################################
 
             except Exception as err:
                 print(err)
@@ -96,14 +98,14 @@ class Thermos(object):
     def route(self, url="/", methods=[]):
         """
         A decorator for defining routes and the methods allowed
-        on the route
+        for the route
         """
 
         if len(methods) < 1:
             raise EmptyMethodsError("Methods cannot be empty")
 
         def decorator(f):
-            self.routes[url] = (f, frozenset(methods))
+            self.ROUTES[url] = (f, frozenset(methods))
             return f
 
         return decorator
@@ -113,9 +115,9 @@ class Thermos(object):
         Gets the route based on the location and method from the routes store,
         returns the matching routes function, if no route or a route is found
         but with no matching method an exception is raised and caught in the
-        calling function.
+        calling function returning the appropriate response to the client.
         """
-        route = self.routes[route]
+        route = self.ROUTES[route]
         if self.req.method in route[1]:
             return route[0](self.req)
         raise MethodNotAllowedError
@@ -143,7 +145,7 @@ class Thermos(object):
 
     def render_template(self, template=None):
         """
-        Pulls the 'template' from the template store
+        Pulls the 'template' from the template folder,
         parses it and sends to the client
         """
         try:

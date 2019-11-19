@@ -19,9 +19,8 @@ def make_response(
         print(err)
         return False
 
-    # Basic setting of 'Content-Type' header based on file extension,
-    # not robust and certainly doesn't cover all possible type/subtypes
-    # but for this very basic server it gets the job done
+    # Basic setting of 'Content-Type' header based on file extension from request,
+    # this is almost vertainly not the best way to do this and does not cover all type/subtypes
     if content_type in {"jpg", "jpeg", "png", "ico", "webp", "gif"}:
         content_type = f"Content-type: image/{content_type}"
     elif content_type in {"html"}:
@@ -40,8 +39,6 @@ def make_response(
         status_text.encode(),
         content_type.encode(),
     )
-
-    print("RET: ", ret)
 
     # Parse additional headers and add to response
     if headers is not None:
