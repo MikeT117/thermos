@@ -1,6 +1,6 @@
 # Thermos
 
-My attempt at an extremely basic http server, influenced from my use of the Flask framework.
+My attempt at an extremely basic http server, influenced from my use of the Flask framework (hence the name lol).
 
 Defaults:
 Port = 5000
