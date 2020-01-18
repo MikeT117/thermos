@@ -18,7 +18,7 @@ server = Thermos(Port, Address, Static, Templates)
 
 ### Adding a route
 
-Similar to Flask a route is added with a route decorator with a function for your return, The request is returned as an argument to your function.
+Similar to Flask a route is added with a route decorator, you provide a function for your return, the request is accessible as an argument in your function.
 
 ```
 @server.route("/", methods=['GET'])
@@ -60,7 +60,7 @@ def function(request):
 
 #### Static files
 
-    You can send static files from the defined static directory using send_static_file e.g.
+You can send static files from the defined static directory using send_static_file e.g.
 
 ```
 @server.route("/", methods=['GET'])
