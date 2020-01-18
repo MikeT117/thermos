@@ -32,7 +32,7 @@ class Request:
             # Get HTTP version from request
             self.http_version = request_str[2].split("/")[1]
 
-            # Begin parsing headers and JSON is present
+            # Begin parsing headers and JSON if present
             while True:
                 # Read a line from the request (reads until /r or .n is hit)
                 line = request.readline()

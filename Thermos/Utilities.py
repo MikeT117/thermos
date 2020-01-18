@@ -40,10 +40,10 @@ def make_response(
         content_type.encode(),
     )
 
-    # Parse additional headers and add to response
+    # Parse additional headers if provided, add to response
     if headers is not None:
         for i in headers:
-            ret += i.encode() + b"\n"
+            ret += f"{i}:{headers[i]}".encode() + b"\n"
     return ret + b"\n" + data
 
 
